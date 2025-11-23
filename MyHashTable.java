@@ -1,6 +1,5 @@
 package src;
 
-
 import java.util.ArrayList;
 
 public class MyHashTable<K, V> {
@@ -8,8 +7,8 @@ public class MyHashTable<K, V> {
     private int size;
     private int capacity;
     private double loadFactorThreshold;
-    private boolean usePAF; // true: PAF, false: SSF
-    private boolean useDoubleHashing; // true: DH, false: LP
+    private boolean usePAF; 
+    private boolean useDoubleHashing; 
     private int collisionCount = 0;
 
     @SuppressWarnings("unchecked")
@@ -25,6 +24,7 @@ public class MyHashTable<K, V> {
     private int hashFunction(K key) {
         String s = key.toString();
         int hashVal = 0;
+        
         if (usePAF) {
             int z = 33;
             for (int i = 0; i < s.length(); i++) {
@@ -35,6 +35,7 @@ public class MyHashTable<K, V> {
                 hashVal += s.charAt(i);
             }
         }
+        
         hashVal = hashVal % capacity;
         if (hashVal < 0) hashVal += capacity;
         return hashVal;
@@ -42,27 +43,48 @@ public class MyHashTable<K, V> {
 
     private int secondHashFunction(int hashVal) {
         int q = capacity - 1;
-        while (!isPrime(q)) q--; // Kapasiteden küçük en büyük asal
-        return q - (hashVal % q);
+        while (!isPrime(q)) {
+            q--;
+        }
+        int res = q - (hashVal % q);
+        if (res == 0) res = 1;
+        return res;
     }
 
     public void put(K key, V value) {
-        if ((double) size / capacity >= loadFactorThreshold) resize();
+        if ((double) size / capacity >= loadFactorThreshold) {
+            resize();
+        }
 
-        int index = hashFunction(key);
-        int startIndex = index;
+        int hashVal = hashFunction(key);
+        int index = hashVal;
         int i = 0;
-        int step = useDoubleHashing ? secondHashFunction(index) : 1;
+        int step = 1;
+        
+        if (useDoubleHashing) {
+             step = secondHashFunction(hashVal);
+        }
 
         while (table[index] != null) {
             if (table[index].getKey().equals(key)) {
                 table[index].setValue(value);
                 return;
             }
+
             collisionCount++;
             i++;
-            if (useDoubleHashing) index = (startIndex + i * step) % capacity;
-            else index = (index + 1) % capacity;
+
+            if (useDoubleHashing) {
+                index = (hashVal + i * step) % capacity;
+            } else {
+                index = (index + 1) % capacity;
+            }
+            
+            if (i > capacity) {
+                resize();
+                put(key, value);
+                return;
+            }
         }
 
         table[index] = new HashEntry<>(key, value);
@@ -70,17 +92,24 @@ public class MyHashTable<K, V> {
     }
 
     public V get(K key) {
-        int index = hashFunction(key);
-        int startIndex = index;
+        int hashVal = hashFunction(key);
+        int index = hashVal;
         int i = 0;
-        int step = useDoubleHashing ? secondHashFunction(index) : 1;
+        int step = useDoubleHashing ? secondHashFunction(hashVal) : 1;
 
         while (table[index] != null) {
-            if (table[index].getKey().equals(key)) return table[index].getValue();
+            if (table[index].getKey().equals(key)) {
+                return table[index].getValue();
+            }
+
             i++;
-            if (useDoubleHashing) index = (startIndex + i * step) % capacity;
-            else index = (index + 1) % capacity;
-            if (i > capacity) return null; 
+            if (useDoubleHashing) {
+                index = (hashVal + i * step) % capacity;
+            } else {
+                index = (index + 1) % capacity;
+            }
+
+            if (i > capacity) return null;
         }
         return null;
     }
@@ -103,24 +132,30 @@ public class MyHashTable<K, V> {
     private void resize() {
         int newCapacity = getNextPrime(capacity * 2);
         HashEntry<K, V>[] oldTable = table;
+
         this.table = new HashEntry[newCapacity];
         this.capacity = newCapacity;
         this.size = 0;
-        // collisionCount sıfırlanmaz, toplam performans ölçülüyor
-
+        
         for (HashEntry<K, V> entry : oldTable) {
-            if (entry != null) put(entry.getKey(), entry.getValue());
+            if (entry != null) {
+                put(entry.getKey(), entry.getValue());
+            }
         }
     }
 
     private boolean isPrime(int n) {
         if (n <= 1) return false;
-        for (int i = 2; i * i <= n; i++) if (n % i == 0) return false;
+        if (n <= 3) return true;
+        if (n % 2 == 0 || n % 3 == 0) return false;
+        for (int i = 5; i * i <= n; i = i + 6)
+            if (n % i == 0 || n % (i + 2) == 0) return false;
         return true;
     }
 
     private int getNextPrime(int n) {
-        while (!isPrime(n)) n++;
+        if (n % 2 == 0) n++;
+        while (!isPrime(n)) n += 2;
         return n;
     }
 }
