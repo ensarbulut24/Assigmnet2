@@ -136,6 +136,7 @@ public class MyHashTable<K, V> {
         this.table = new HashEntry[newCapacity];
         this.capacity = newCapacity;
         this.size = 0;
+        this.collisionCount = 0; // Reset collision count for new table
         
         for (HashEntry<K, V> entry : oldTable) {
             if (entry != null) {

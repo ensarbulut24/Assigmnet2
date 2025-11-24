@@ -39,20 +39,25 @@ public class SearchEngine {
         System.out.println("Loading articles (LIMIT: 100)...");
         long startTime = System.currentTimeMillis();
         int count = 0;
-        
-        // !!! BURAYI DEĞİŞTİRDİK: Sadece 100 satır okuyacak !!!
-        int limit = 1000; 
+        int limit = 100; 
 
         try (BufferedReader br = new BufferedReader(new FileReader(filePath), 1024 * 1024)) {
-            String line = br.readLine(); // Header'ı oku ve geç
+            String headerLine = br.readLine();
+            if (headerLine != null) {
+                ArrayList<String> headers = parseCSVLine(headerLine);
+                System.out.println("Detected Columns: " + headers);
+            }
             
-            // Döngü koşuluna "&& count < limit" ekledik
+            String line;
             while ((line = br.readLine()) != null && count < limit) {
                 ArrayList<String> columns = parseCSVLine(line);
                 
-                if (columns.size() >= 2) {
+                if (columns.size() >= 5) {
                     String id = columns.get(0);
-                    String headline = (columns.size() > 2) ? columns.get(2) : "No Title";
+                    
+                    // DÜZELTME: Index 2 (Tarih) yerine Index 4 (Başlık) deniyoruz
+                    String headline = columns.get(4); 
+                    
                     String text = columns.get(columns.size() - 1);
 
                     if(id.length() > 1 && id.charAt(0) == '"') id = id.substring(1, id.length()-1);
@@ -81,7 +86,6 @@ public class SearchEngine {
                         postingList.put(id, currentCount + 1);
                     }
                 }
-                
                 count++;
             }
             System.out.println("\nFinished loading " + count + " articles in " + (System.currentTimeMillis() - startTime) + "ms.");
