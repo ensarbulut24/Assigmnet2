@@ -2,10 +2,14 @@ package src;
 
 public class Article {
     private String id;
+    private String category;
+    private String section;
     private String headline;
 
-    public Article(String id, String headline) {
+    public Article(String id, String category, String section, String headline) {
         this.id = id;
+        this.category = category;
+        this.section = section;
         this.headline = headline;
     }
 
@@ -13,6 +17,7 @@ public class Article {
     
     @Override
     public String toString() {
-        return "[" + id + "] " + headline;
+        // ID araması yapıldığında ekrana böyle basılacak
+        return String.format("[%s] %s | %s | %s", id, category, section, headline);
     }
 }

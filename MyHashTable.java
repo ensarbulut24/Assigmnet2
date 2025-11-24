@@ -28,6 +28,7 @@ public class MyHashTable<K, V> {
         if (usePAF) {
             int z = 33;
             for (int i = 0; i < s.length(); i++) {
+                // Horner kuralı ile her adımda mod alarak overflow'u engelliyoruz
                 hashVal = (hashVal * z + s.charAt(i)) % capacity;
             }
         } else {
@@ -74,12 +75,20 @@ public class MyHashTable<K, V> {
             collisionCount++;
             i++;
 
+            // --- DÜZELTME BURADA YAPILDI ---
             if (useDoubleHashing) {
+                // (hash + i*step) çok büyürse int sınırını aşıp negatif olabilir.
                 index = (hashVal + i * step) % capacity;
             } else {
                 index = (index + 1) % capacity;
             }
             
+            // Eğer sonuç negatifse kapasite ekleyerek pozitife çevir
+            if (index < 0) {
+                index += capacity;
+            }
+            // --------------------------------
+
             if (i > capacity) {
                 resize();
                 put(key, value);
@@ -103,11 +112,19 @@ public class MyHashTable<K, V> {
             }
 
             i++;
+            
+            // --- DÜZELTME BURADA YAPILDI ---
             if (useDoubleHashing) {
                 index = (hashVal + i * step) % capacity;
             } else {
                 index = (index + 1) % capacity;
             }
+
+            // Negatif indeks koruması
+            if (index < 0) {
+                index += capacity;
+            }
+            // --------------------------------
 
             if (i > capacity) return null;
         }
@@ -136,7 +153,6 @@ public class MyHashTable<K, V> {
         this.table = new HashEntry[newCapacity];
         this.capacity = newCapacity;
         this.size = 0;
-        this.collisionCount = 0; // Reset collision count for new table
         
         for (HashEntry<K, V> entry : oldTable) {
             if (entry != null) {
