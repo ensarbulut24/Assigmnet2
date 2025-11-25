@@ -1,4 +1,4 @@
-package src;
+package dataodev;
 
 public class SearchResult implements Comparable<SearchResult> {
     String articleId;

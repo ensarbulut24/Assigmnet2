@@ -1,5 +1,4 @@
-package src;
-
+package dataodev;
 import java.util.ArrayList;
 
 public class MyHashTable<K, V> {
@@ -10,14 +9,16 @@ public class MyHashTable<K, V> {
     private boolean usePAF; 
     private boolean useDoubleHashing; 
     private int collisionCount = 0;
+    private int secondaryPrime;
 
     @SuppressWarnings("unchecked")
     public MyHashTable(int capacity, double loadFactorThreshold, boolean usePAF, boolean useDoubleHashing) {
-        this.capacity = capacity;
+        this.capacity = getNextPrime(capacity);
         this.loadFactorThreshold = loadFactorThreshold;
         this.usePAF = usePAF;
         this.useDoubleHashing = useDoubleHashing;
-        this.table = new HashEntry[capacity];
+        updateSecondaryPrime();
+        this.table = new HashEntry[this.capacity];
         this.size = 0;
     }
 
@@ -43,11 +44,7 @@ public class MyHashTable<K, V> {
     }
 
     private int secondHashFunction(int hashVal) {
-        int q = capacity - 1;
-        while (!isPrime(q)) {
-            q--;
-        }
-        int res = q - (hashVal % q);
+        int res = secondaryPrime - (hashVal % secondaryPrime);
         if (res == 0) res = 1;
         return res;
     }
@@ -150,8 +147,9 @@ public class MyHashTable<K, V> {
         int newCapacity = getNextPrime(capacity * 2);
         HashEntry<K, V>[] oldTable = table;
 
-        this.table = new HashEntry[newCapacity];
         this.capacity = newCapacity;
+        updateSecondaryPrime();
+        this.table = new HashEntry[newCapacity];
         this.size = 0;
         
         for (HashEntry<K, V> entry : oldTable) {
@@ -174,5 +172,25 @@ public class MyHashTable<K, V> {
         if (n % 2 == 0) n++;
         while (!isPrime(n)) n += 2;
         return n;
+    }
+
+    private int getPreviousPrime(int n) {
+        if (n <= 3) return 2;
+        if (n % 2 == 0) n--;
+        while (n > 2 && !isPrime(n)) {
+            n -= 2;
+        }
+        return Math.max(n, 2);
+    }
+
+    private void updateSecondaryPrime() {
+        if (capacity <= 3) {
+            secondaryPrime = Math.max(1, capacity - 1);
+            return;
+        }
+        secondaryPrime = getPreviousPrime(capacity - 1);
+        if (secondaryPrime <= 1) {
+            secondaryPrime = 1;
+        }
     }
 }

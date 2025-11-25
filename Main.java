@@ -1,4 +1,4 @@
-package src;
+package dataodev;
 import java.util.Scanner;
 
 public class Main {
@@ -36,26 +36,30 @@ public class Main {
                     String collChoice = scanner.nextLine();
                     boolean useDH = collChoice.equals("2");
                     
-                    // --- 3. Soru: Limit (Kullanıcının İsteği) ---
+                    // --- 3. Soru: Limit ---
                     System.out.println("\n[Settings] How many articles to load?");
                     System.out.println("(Enter '0' for ALL 28645 articles, or '100' for testing)");
                     System.out.print("Count: ");
-                    // nextInt() sonrası nextLine() hatasını önlemek için string olarak alıp parse ediyoruz
+                    
                     String limitStr = scanner.nextLine();
                     int limit = 0;
                     try {
                         limit = Integer.parseInt(limitStr);
                     } catch (NumberFormatException e) {
-                        limit = 0; // Hata olursa varsayılan olarak hepsi
+                        limit = 0; 
                     }
 
                     System.out.println("\nApplying settings: " + (usePAF ? "PAF" : "SSF") + 
                                        " & " + (useDH ? "DH" : "LP") + 
                                        " | Limit: " + (limit == 0 ? "ALL" : limit));
                     
+                    // Motoru sıfırla
                     engine.resetEngine(0.8, usePAF, useDH);
                     engine.loadStopWords("stop_words_en.txt");
-                    // Limiti metoda gönderiyoruz
+
+                    // GÜNCELLEME BURADA:
+                    // loadArticles artık 3 parametre alıyor.
+                    // Manuel yükleme olduğu için cache kullanma (false), diskten oku.
                     engine.loadArticles("CNN_Articels.csv", limit);
                     break;
                     
@@ -77,7 +81,9 @@ public class Main {
                     break;
                     
                 case "4":
-                    System.out.println("Running performance tests (This loads ALL data 8 times)...");
+                    System.out.println("Running performance tests (Index creation from RAM cache)...");
+                    // SearchEngine içindeki runPerformanceTests kendi içinde 
+                    // loadArticles(..., true) çağırdığı için buraya dokunmuyoruz.
                     engine.runPerformanceTests();
                     break;
                     

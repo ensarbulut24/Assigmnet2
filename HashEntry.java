@@ -1,4 +1,4 @@
-package src;
+package dataodev;
 
 public class HashEntry<K, V> {
     private K key;

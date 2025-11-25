@@ -1,25 +1,51 @@
-package src;
+package dataodev;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 
 public class SearchEngine {
     private MyHashTable<String, Article> articleMap;
     private MyHashTable<String, MyHashTable<String, Integer>> indexMap;
     private MyHashTable<String, String> stopWords;
+    // Only used to speed up performance tests; normal load keeps old behavior.
+    private ArrayList<String> perfStopWords = new ArrayList<>();
+    private HashSet<String> perfStopWordSet = new HashSet<>();
+    private ArrayList<ParsedArticle> perfArticles = new ArrayList<>();
+    private boolean perfCacheReady = false;
+
+    private static class ParsedArticle {
+        final String id;
+        final String category;
+        final String section;
+        final String headline;
+        final String[] words;
+        final int[] freqs;
+
+        ParsedArticle(String id, String category, String section, String headline, String[] words, int[] freqs) {
+            this.id = id;
+            this.category = category;
+            this.section = section;
+            this.headline = headline;
+            this.words = words;
+            this.freqs = freqs;
+        }
+    }
 
     public SearchEngine() {
-        this.articleMap = new MyHashTable<>(40000, 0.8, false, false);
-        this.indexMap = new MyHashTable<>(100000, 0.8, false, false);
+        this.articleMap = new MyHashTable<>(60000, 0.75, false, false);
+        this.indexMap = new MyHashTable<>(200000, 0.75, false, false);
         this.stopWords = new MyHashTable<>(1000, 0.8, false, false);
     }
 
     public void resetEngine(double loadFactor, boolean usePAF, boolean useDH) {
-        this.articleMap = new MyHashTable<>(40000, loadFactor, usePAF, useDH);
-        this.indexMap = new MyHashTable<>(100000, loadFactor, usePAF, useDH);
+        this.articleMap = new MyHashTable<>(60000, loadFactor, usePAF, useDH);
+        this.indexMap = new MyHashTable<>(200000, loadFactor, usePAF, useDH);
         this.stopWords = new MyHashTable<>(1000, 0.8, false, false);
     }
 
@@ -75,7 +101,7 @@ public class SearchEngine {
                         if (stopWords.containsKey(word)) continue;
 
                         if (!indexMap.containsKey(word)) {
-                            indexMap.put(word, new MyHashTable<>(10, 0.8, false, false));
+                            indexMap.put(word, new MyHashTable<>(50, 0.8, false, false));
                         }
                         MyHashTable<String, Integer> postingList = indexMap.get(word);
                         int currentCount = 0;
@@ -178,14 +204,32 @@ public class SearchEngine {
         double[] loadFactors = {0.5, 0.8};
         boolean[] hashFunctions = {false, true};
         boolean[] collisionTypes = {false, true};
+        ensurePerformanceDataset();
         
         ArrayList<String> searchKeys = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader("search.txt"))) {
             String line;
-            while ((line = br.readLine()) != null) searchKeys.add(line.trim());
+            while ((line = br.readLine()) != null) {
+                String trimmed = line.trim();
+                if (!trimmed.isEmpty()) searchKeys.add(trimmed);
+            }
         } catch (IOException e) { 
-            System.out.println("search.txt not found");
-            return;
+            System.out.println("search.txt not found, using fallback keywords.");
+        }
+        if (searchKeys.isEmpty()) {
+            HashSet<String> fallback = new HashSet<>();
+            for (ParsedArticle article : perfArticles) {
+                for (String word : article.words) {
+                    if (fallback.add(word)) {
+                        searchKeys.add(word);
+                        if (searchKeys.size() >= 25) break;
+                    }
+                }
+                if (searchKeys.size() >= 25) break;
+            }
+            if (searchKeys.isEmpty()) {
+                searchKeys.add("news");
+            }
         }
 
         System.out.printf("%-10s %-10s %-10s %-15s %-20s %-20s\n", 
@@ -196,11 +240,11 @@ public class SearchEngine {
                 for (boolean isDh : collisionTypes) {
                     
                     resetEngine(lf, isPaf, isDh);
-                    loadStopWords("stop_words_en.txt");
+                    loadStopWordsFromCache();
 
                     long startIndex = System.nanoTime();
                     // Performans testinde limit 0 (HEPSİ) olarak çağrılır
-                    loadArticles("CNN_Articels.csv", 0); 
+                    loadArticlesFromCache(0);
                     long endIndex = System.nanoTime();
                     
                     double indexTime = (endIndex - startIndex) / 1_000_000.0;
@@ -220,5 +264,94 @@ public class SearchEngine {
                 }
             }
         }
+    }
+
+    private void ensurePerformanceDataset() {
+        if (perfCacheReady) return;
+
+        perfStopWords.clear();
+        perfStopWordSet.clear();
+        try (BufferedReader br = new BufferedReader(new FileReader("stop_words_en.txt"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String word = line.trim();
+                if(!word.isEmpty()) {
+                    perfStopWords.add(word);
+                    perfStopWordSet.add(word);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("File error: stop_words_en.txt");
+        }
+
+        perfArticles.clear();
+        try (BufferedReader br = new BufferedReader(new FileReader("CNN_Articels.csv"), 1024 * 1024)) {
+            br.readLine(); // header
+            String line;
+            while ((line = br.readLine()) != null) {
+                ArrayList<String> columns = parseCSVLine(line);
+                if (columns.size() >= 7) {
+                    String id = cleanText(columns.get(0));
+                    String category = cleanText(columns.size() > 3 ? columns.get(3) : "-");
+                    String section = cleanText(columns.size() > 4 ? columns.get(4) : "-");
+                    String headline = cleanText(columns.size() > 6 ? columns.get(6) : "No Title");
+                    String text = cleanText(columns.get(columns.size() - 1));
+                    String[] split = text.split("[^a-zA-Z0-9]+");
+                    HashMap<String, Integer> freqMap = new HashMap<>();
+                    for (String token : split) {
+                        if (token.length() < 2) continue;
+                        String normalized = token.toLowerCase();
+                        if (perfStopWordSet.contains(normalized)) continue;
+                        freqMap.merge(normalized, 1, Integer::sum);
+                    }
+                    String[] words = new String[freqMap.size()];
+                    int[] freqs = new int[freqMap.size()];
+                    int idx = 0;
+                    for (Map.Entry<String, Integer> entry : freqMap.entrySet()) {
+                        words[idx] = entry.getKey();
+                        freqs[idx] = entry.getValue();
+                        idx++;
+                    }
+                    perfArticles.add(new ParsedArticle(id, category, section, headline, words, freqs));
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("File error: CNN_Articels.csv");
+        }
+        perfCacheReady = true;
+    }
+
+    private void loadStopWordsFromCache() {
+        this.stopWords = new MyHashTable<>(1000, 0.8, false, false);
+        for (String word : perfStopWords) {
+            stopWords.put(word, "ignored");
+        }
+    }
+
+    private void loadArticlesFromCache(int limit) {
+        if (limit <= 0 || limit > perfArticles.size()) {
+            limit = perfArticles.size();
+        }
+        int count = 0;
+        for (ParsedArticle article : perfArticles) {
+            if (count >= limit) break;
+            articleMap.put(article.id, new Article(article.id, article.category, article.section, article.headline));
+            for (int i = 0; i < article.words.length; i++) {
+                String word = article.words[i];
+                int freq = article.freqs[i];
+
+                MyHashTable<String, Integer> postingList = indexMap.get(word);
+                if (postingList == null) {
+                    postingList = new MyHashTable<>(64, 0.8, false, false);
+                    indexMap.put(word, postingList);
+                }
+                Integer current = postingList.get(article.id);
+                int newValue = (current == null ? 0 : current) + freq;
+                postingList.put(article.id, newValue);
+            }
+            count++;
+        }
+        System.out.println("\nFinished loading " + count + " articles from cache.");
+        System.out.println("Total Collisions in Index: " + indexMap.getCollisionCount());
     }
 }

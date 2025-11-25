@@ -1,4 +1,4 @@
-package src;
+package dataodev;
 
 public class Article {
     private String id;
