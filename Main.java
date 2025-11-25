@@ -1,4 +1,4 @@
-package dataodev;
+package src;
 import java.util.Scanner;
 
 public class Main {
@@ -98,4 +98,5 @@ public class Main {
         }
         scanner.close();
     }
+
 }
