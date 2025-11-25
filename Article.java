@@ -1,4 +1,4 @@
-package dataodev;
+package src;
 
 public class Article {
     private String id;
@@ -20,4 +20,5 @@ public class Article {
         // ID araması yapıldığında ekrana böyle basılacak
         return String.format("[%s] %s | %s | %s", id, category, section, headline);
     }
+
 }
