@@ -1,4 +1,4 @@
-package dataodev;
+package src;
 
 public class HashEntry<K, V> {
     private K key;
@@ -13,3 +13,4 @@ public class HashEntry<K, V> {
     public V getValue() { return value; }
     public void setValue(V value) { this.value = value; }
 }
+
